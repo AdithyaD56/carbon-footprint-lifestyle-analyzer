@@ -307,7 +307,7 @@ Potential future enhancements:
 
 # 🌐 Live Demo
 
-[🚀 Carbon Lifestyle Analyzer Studio ](https://crowd-pulse-x.vercel.app/)
+[🚀 Carbon Lifestyle Analyzer Studio ](https://carbon-footprint-lifestyle-analyzer-v1.streamlit.app/)
 
 ---
 
