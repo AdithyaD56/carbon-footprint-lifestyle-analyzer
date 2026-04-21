@@ -32,7 +32,7 @@ if not (BASE_DIR / "pipeline.pkl").exists():
 
 
 DATA_PATHS = [BASE_DIR / "Carbon Emission.csv", BASE_DIR / "Carbon_Emission.csv"]
-MODEL_PATHS = [BASE_DIR / "pipeline.pkl", BASE_DIR / "carbon_pipeline.pkl"]
+MODEL_PATHS = [BASE_DIR / "pipeline.pkl"]
 
 IMAGE_LIBRARY = {
 }
