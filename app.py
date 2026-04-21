@@ -9,6 +9,11 @@ import plotly.graph_objects as go
 import streamlit as st
 
 try:
+    import gdown
+except ImportError:
+    gdown = None
+
+try:
     from groq import Groq
 except ImportError:
     Groq = None
@@ -20,19 +25,10 @@ except ImportError:
 
 
 BASE_DIR = Path(__file__).resolve().parent
-
-import gdown
-
-if not (BASE_DIR / "pipeline.pkl").exists():
-    gdown.download(
-        "https://drive.google.com/file/d/1cSUJBLMu9HA52382odHJEz17nNwo5l37/view?usp=sharing",
-        str(BASE_DIR / "pipeline.pkl"),
-        quiet=False
-    )
-
-
 DATA_PATHS = [BASE_DIR / "Carbon Emission.csv", BASE_DIR / "Carbon_Emission.csv"]
-MODEL_PATHS = [BASE_DIR / "pipeline.pkl"]
+MODEL_PATH = BASE_DIR / "pipeline.pkl"
+MODEL_DOWNLOAD_URL = "https://drive.google.com/uc?id=1cSUJBLMu9HA52382odHJEz17nNwo5l37"
+MIN_MODEL_SIZE_BYTES = 20 * 1024 * 1024
 
 IMAGE_LIBRARY = {
 }
@@ -250,10 +246,22 @@ if load_dotenv is not None:
 
 @st.cache_resource
 def load_model():
-    for path in MODEL_PATHS:
-        if path.exists():
-            return joblib.load(path)
-    return None
+    if not MODEL_PATH.exists() or MODEL_PATH.stat().st_size < MIN_MODEL_SIZE_BYTES:
+        if gdown is None:
+            raise RuntimeError("`gdown` is not installed. Add `gdown` to requirements.txt and redeploy.")
+
+        if MODEL_PATH.exists():
+            MODEL_PATH.unlink()
+
+        with st.spinner("Downloading trained model from Google Drive..."):
+            gdown.download(MODEL_DOWNLOAD_URL, str(MODEL_PATH), quiet=False)
+
+    if not MODEL_PATH.exists() or MODEL_PATH.stat().st_size < MIN_MODEL_SIZE_BYTES:
+        raise RuntimeError(
+            "Model download failed or produced an invalid file. Make sure the Google Drive file is shared as 'Anyone with the link'."
+        )
+
+    return joblib.load(MODEL_PATH)
 
 
 @st.cache_data
@@ -405,8 +413,18 @@ User profile:
         return None, str(exc)
 
 
+def get_groq_api_key():
+    env_key = os.getenv("GROQ_API_KEY", "").strip()
+    if env_key:
+        return env_key
+    try:
+        return str(st.secrets.get("GROQ_API_KEY", "")).strip()
+    except Exception:
+        return ""
+
+
 def maybe_generate_ai_suggestions():
-    groq_api_key = os.getenv("GROQ_API_KEY", "").strip()
+    groq_api_key = get_groq_api_key()
     if not groq_api_key or st.session_state.prediction is None:
         return
     if st.session_state.ai_response or st.session_state.ai_error:
@@ -438,11 +456,16 @@ def maybe_generate_ai_suggestions():
     st.session_state.ai_error = error
 
 
-pipeline = load_model()
+try:
+    pipeline = load_model()
+except Exception as exc:
+    st.error(f"Unable to load the trained model: {exc}")
+    st.stop()
+
 df = load_data()
 
-if pipeline is None or df is None:
-    st.error("Model or data file is missing. Keep `pipeline.pkl` or `carbon_pipeline.pkl` and `Carbon Emission.csv` in this folder.")
+if df is None:
+    st.error("Data file is missing. Keep `Carbon Emission.csv` in this folder.")
     st.stop()
 
 
@@ -788,8 +811,8 @@ else:
 
     with tab4:
         st.write("Generate a personalized sustainability explanation and action plan using the Groq API.")
-        groq_api_key = os.getenv("GROQ_API_KEY", "").strip()
-        st.caption("Groq status: " + ("configured" if groq_api_key else "missing from .env.local"))
+        groq_api_key = get_groq_api_key()
+        st.caption("Groq status: " + ("configured" if groq_api_key else "missing from .env.local or Streamlit secrets"))
         simulation_context = {
             "projected_monthly": projected_monthly if "projected_monthly" in locals() else monthly,
             "monthly_savings": monthly_savings if "monthly_savings" in locals() else 0,
@@ -797,7 +820,7 @@ else:
 
         if st.button("Generate AI Sustainability Coach"):
             if not groq_api_key:
-                st.warning("Add `GROQ_API_KEY=your_key_here` to `.env.local`, then restart the Streamlit app.")
+                st.warning("Add `GROQ_API_KEY=your_key_here` to `.env.local` locally or Streamlit secrets on Cloud, then restart the app.")
             else:
                 with st.spinner("Contacting Groq and preparing your sustainability advice..."):
                     response, error = generate_ai_response(
