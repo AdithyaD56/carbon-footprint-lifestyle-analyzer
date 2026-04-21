@@ -30,12 +30,6 @@ if not (BASE_DIR / "pipeline.pkl").exists():
         quiet=False
     )
 
-if not (BASE_DIR / "carbon_pipeline.pkl").exists():
-    gdown.download(
-        "https://drive.google.com/file/d/1skRcYsMpvJt2ZJbewzsOxHeezy1lh9ky/view?usp=sharing",
-        str(BASE_DIR / "carbon_pipeline.pkl"),
-        quiet=False
-    )
 
 DATA_PATHS = [BASE_DIR / "Carbon Emission.csv", BASE_DIR / "Carbon_Emission.csv"]
 MODEL_PATHS = [BASE_DIR / "pipeline.pkl", BASE_DIR / "carbon_pipeline.pkl"]
